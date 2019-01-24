@@ -1,0 +1,561 @@
+<html>
+<head>
+    <title>Milkyway Universe</title>
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link href='http://fonts.googleapis.com/css?family=Fauna+One' rel='stylesheet' type='text/css'>
+    <link href='css/style.css' rel='stylesheet' type='text/css'>
+    <script type="text/javascript" src="Js/Detector.js"></script>
+    <script type="text/javascript" src="Js/jquery.min.js"></script>
+    <script type="text/javascript" src="Js/dat.gui.min.js"></script>
+    <script type="text/javascript" src="Js/three.min.js"></script>
+    <script type="text/javascript" src="Js/leap.min.js"></script>
+    <script type="text/javascript" src="Js/threex.planets.js"></script>
+    <script type="text/javascript" src="Js/threex.atmospheredatgui.js"></script>
+    <script type="text/javascript" src="Js/threex.atmospherematerial.js"></script>
+    <script type="text/javascript" src="Js/threex.dilategeometry.js"></script>
+    <script type="text/javascript" src="Js/threex.geometricglowmesh.js"></script>
+    <script type="text/javascript" src="Js/package.require.js"></script>
+    <script type="text/javascript" src="LeapCameraControls.js"></script>
+    <script type="text/javascript" src="LeapObjectControls.js"></script>
+    <script type="text/javascript">
+        var camera, scene, renderer, projector, light;
+        var objects = [], objectsControls = [],onRenderFcts = [], cameraControls;
+        var coords1, coords2, coords3;
+        var lastControlsIndex = -1, controlsIndex = -1, index = -1;
+
+
+
+        function init()
+        {
+            // is webgl supported?
+            if (!Detector.webgl)
+            {
+                Detector.addGetWebGLMessage();
+                return false;
+            }
+
+            // world
+            scene = new THREE.Scene();
+
+            // renderer
+            renderer = new THREE.WebGLRenderer({antialias: true});
+            renderer.setSize($(window).width(), $(window).height());
+            renderer.setClearColor(0xffffff, 0);
+            $('#container').append(renderer.domElement);
+
+            // camera
+            camera = new THREE.PerspectiveCamera(25, $(window).width() / $(window).height(), 0.1, 100000);
+            camera.position.set(300, 300, 300);
+            var origin = new THREE.Vector3(0, 0, 0);
+            camera.lookAt(scene.position);
+
+            // leap camera controls
+            cameraControls = new THREE.LeapCameraControls(camera);
+
+            cameraControls.rotateEnabled  = true;
+            cameraControls.rotateSpeed    = 3;
+            cameraControls.rotateHands    = 1;
+            cameraControls.rotateFingers  = [2, 3];
+
+            cameraControls.zoomEnabled    = true;
+            cameraControls.zoomSpeed      = 6;
+            cameraControls.zoomHands      = 1;
+            cameraControls.zoomFingers    = [4, 5];
+            cameraControls.zoomMin        = 200;
+            cameraControls.zoomMax        = 1100;
+
+
+
+            // projector
+            projector = new THREE.Projector();
+
+            // camera target coordinate system
+            coords1 = new THREE.ArrowHelper(new THREE.Vector3( 1 , 0 , 0 ) , origin , 75 , 0xffffff);
+            coords2 = new THREE.ArrowHelper(new THREE.Vector3( 0 , 1 , 0 ) , origin , 75 , 0xffffff);
+            coords3 = new THREE.ArrowHelper(new THREE.Vector3( 0 , 0 , 1 ) , origin , 75 , 0xffffff);
+            //scene.add(coords1);
+            //scene.add(coords2);
+            //scene.add(coords3);
+
+            // world coordinate system (thin dashed helping lines)
+            /*
+            var lineGeometry = new THREE.Geometry();
+            var vertArray = lineGeometry.vertices;
+            vertArray.push(new THREE.Vector3(1000 , 0 , 0) , origin, new THREE.Vector3(0 , 1000 , 0) , origin, new THREE.Vector3(0 , 0 , 1000));
+            lineGeometry.computeLineDistances();
+
+            var lineMaterial = new THREE.LineDashedMaterial
+            ({
+                color: 0xffffff, dashSize: 1, gapSize: 2
+            });
+
+            var coords = new THREE.Line(lineGeometry, lineMaterial);
+            scene.add(coords);
+            */
+
+            // universe
+            for (var universe = 0; universe < 1; universe++)
+            {
+                var universeGeometry                = new THREE.SphereGeometry(500, 500, 500);
+                var universeMaterial                = new THREE.MeshBasicMaterial();
+
+                universeMaterial.map                = THREE.ImageUtils.loadTexture('http://paulbourke.net/miscellaneous/starfield/8192x4096.png'); // "4K Background"
+                //universeMaterial.map              = THREE.ImageUtils.loadTexture('http://paulbourke.net/miscellaneous/starfield/1024x512.png'); "1K Background"
+                universeMaterial.side               = THREE.BackSide;
+
+                var universeMesh                    = new THREE.Mesh(universeGeometry, universeMaterial);
+
+                universeMesh.position.x             = 0;
+                universeMesh.position.y             = 0;
+                universeMesh.position.z             = 0;
+
+                scene.add(universeMesh);
+                onRenderFcts.push(function(delta , now)
+                {
+                    delta = Math.PI;
+                    universeMesh.rotateY( 1 / 50000 * delta );
+                });
+            }
+
+            //sun
+            for (var sun = 0; sun < 1; sun++)
+            {
+                var sunGeometry                     = new THREE.SphereGeometry(100, 100, 100);
+                var sunMaterial                     = new THREE.MeshPhongMaterial();
+
+                sunMaterial.map                     = THREE.ImageUtils.loadTexture('http://www.solarsystemscope.com/assets/texture_pack/preview_sun.jpg');
+
+                var sunMesh                         = new THREE.Mesh(sunGeometry, sunMaterial);
+
+                sunMesh.position.x                  = -390;
+                sunMesh.position.y                  = -150;
+                sunMesh.position.z                  = 0;
+
+                scene.add(sunMesh);
+                onRenderFcts.push(function(delta , now)
+                {
+                    delta = Math.PI;
+                    sunMesh.rotateY( 1 / 4500 * delta );
+                });
+                objects.push(sunMesh);
+            }
+
+            // Moon
+            /*
+            for (var moon = 0; moon < 1; moon++)
+            {
+                //create Moon
+                var moonGeometry	                = new THREE.SphereGeometry(15, 15, 15);
+                var moonMaterial	                = new THREE.MeshPhongMaterial();
+
+                moonMaterial.map	                = THREE.ImageUtils.loadTexture('http://www.celestiamotherlode.net/catalog/images/screenshots/various/moon_Moon_4K_1__Hermes.jpg');
+                //moonMaterial.bumpMap	            = THREE.ImageUtils.loadTexture('image/Moon/moonbumb1k.jpg');
+                moonMaterial.bumpScale              = 100;
+
+                var moonMesh	                    = new THREE.Mesh(moonGeometry, moonMaterial);
+
+                moonMesh.position.x = 200;
+                moonMesh.position.y = 100;
+                moonMesh.position.z = 10;
+
+                // leap object controls
+                var moonObjectControls                  = new THREE.LeapObjectControls(camera, moonMesh);
+
+                //Rotation
+                moonObjectControls.rotateEnabled        = true;
+                moonObjectControls.rotateSpeed          = 3;
+                moonObjectControls.rotateHands          = 1;
+                moonObjectControls.rotateFingers        = [2, 3];
+
+                //Rotation stop
+                moonObjectControls.rotateEnabled        = false;
+                moonObjectControls.rotateSpeed          = 0;
+                moonObjectControls.rotateHands          = 1;
+                moonObjectControls.rotateFingers        = [0];
+                moonObjectControls.scaleEnabled       = false;
+                moonObjectControls.panEnabled         = false;
+
+                //Scaling
+                moonObjectControls.scaleEnabled         = true;
+                moonObjectControls.scaleSpeed           = 3;
+                moonObjectControls.scaleHands           = 1;
+                moonObjectControls.scaleFingers         = [4, 5];
+
+                scene.add(moonMesh);
+                objects.push(moonMesh);
+                objectsControls.push(moonObjectControls);
+
+            }
+            */
+
+
+            // Tiny Earth
+            for (var moon = 0; moon < 1; moon++)
+            {
+                //tiny earth
+                var tinyearthGeometry	                = new THREE.SphereGeometry(1, 1, 1);
+                var tinyearthMaterial	                = new THREE.MeshPhongMaterial();
+
+
+                var tinyearthMesh	                    = new THREE.Mesh(tinyearthGeometry, tinyearthMaterial);
+
+                tinyearthMesh.position.x = 0;
+                tinyearthMesh.position.y = 0;
+                tinyearthMesh.position.z = 0;
+
+                //create Moon
+                var moonGeometry	                = new THREE.SphereGeometry(15, 15, 15);
+                var moonMaterial	                = new THREE.MeshPhongMaterial();
+
+                moonMaterial.map	                = THREE.ImageUtils.loadTexture('http://www.celestiamotherlode.net/catalog/images/screenshots/various/moon_Moon_4K_1__Hermes.jpg');
+                //moonMaterial.bumpMap	            = THREE.ImageUtils.loadTexture('image/Moon/moonbumb1k.jpg');
+                moonMaterial.bumpScale              = 100;
+
+                var moonMesh	                    = new THREE.Mesh(moonGeometry, moonMaterial);
+
+                moonMesh.position.x = 100;
+                moonMesh.position.y = 50;
+                moonMesh.position.z = 10;
+
+                tinyearthMesh.add(moonMesh);
+
+                var tinymoonGeometry	                = new THREE.SphereGeometry(1, 1, 1);
+                var tinymoonMaterial	                = new THREE.MeshPhongMaterial();
+
+                var tinymoonMesh	                    = new THREE.Mesh(tinymoonGeometry, tinymoonMaterial);
+
+                tinymoonMesh.position.x = 0;
+                tinymoonMesh.position.y = 0;
+                tinymoonMesh.position.z = 0;
+
+                moonMesh.add(tinymoonMesh);
+
+                var astroidGeometry 	                = new THREE.SphereGeometry(5, 1, -7);
+                var astroidMaterial	                    = new THREE.MeshPhongMaterial();
+
+                astroidMaterial.map	                    = THREE.ImageUtils.loadTexture('http://www.celestiamotherlode.net/catalog/images/screenshots/various/moon_Moon_4K_1__Hermes.jpg');
+
+                var astroidMesh	                       = new THREE.Mesh(astroidGeometry, astroidMaterial);
+
+                astroidMesh.position.x = 35;
+                astroidMesh.position.y = 20;
+                astroidMesh.position.z = 8;
+
+                tinymoonMesh.add(astroidMesh);
+
+                scene.add(tinyearthMesh);
+                onRenderFcts.push(function(delta , now)
+                {
+                    delta = Math.PI;
+                    tinyearthMesh.rotateY( 1 / -7500 * delta );
+                    tinymoonMesh.rotateY( 1 / 1024 * delta );
+                    astroidMesh.rotateX( 1 / 32 * delta );
+                    astroidMesh.rotateY( 1 / 32 * delta );
+
+                });
+                objects.push(tinyearthMesh);
+
+            }
+
+            // Earth
+            for (var earth = 0; earth < 1; earth++)
+            {
+                var geometry                        = new THREE.SphereGeometry(35, 35, 35);
+                var material                        = new THREE.MeshPhongMaterial();
+                var earthMesh                       = new THREE.Mesh(geometry, material);
+
+                material.map                        = THREE.ImageUtils.loadTexture('http://learningthreejs.com/data/2013-09-16-how-to-make-the-earth-in-webgl/demo/bower_components/threex.planets/images/earthmap1k.jpg');
+                material.bumpMap                    = THREE.ImageUtils.loadTexture('http://learningthreejs.com/data/2013-09-16-how-to-make-the-earth-in-webgl/demo/bower_components/threex.planets/images/earthbump1k.jpg');
+                material.bumpScale                  = 2.5;
+
+                material.specularMap                = THREE.ImageUtils.loadTexture('http://learningthreejs.com/data/2013-09-16-how-to-make-the-earth-in-webgl/demo/bower_components/threex.planets/images/earthspec1k.jpg');
+                material.specular                   = new THREE.Color('grey');
+
+                earthMesh.position.x                = 0;
+                earthMesh.position.y                = 0;
+                earthMesh.position.z                = 0;
+
+                earthMesh.receiveShadow             = true;
+
+                //create glow mesh
+                /*
+                var Atmosphere              = new THREEx.GeometricGlowMesh(earthMesh);
+                earthMesh.add(glowMesh.object3d);
+
+                var outsideUniforms	        = glowMesh.insideMesh.material.uniforms;
+                outsideUniforms.glowColor.value.set('babyblue');
+                */
+
+                //creating Clouds
+                /*
+                var cloudGeometry           = new THREE.SphereGeometry(75.3, 75, 75);
+                var cloudmaterial           = new THREE.MeshPhongMaterial({
+                    map                         : THREE.Texture(new THREE.ImageUtils.loadTexture('http://www.solarsystemscope.com/assets/texture_pack/preview_earth_clouds.jpg')),
+                    opacity                     : .4,
+                    transparent                 : false,
+                    depthWrite                  : true
+                });
+                var cloudMesh               = new THREE.Mesh(cloudGeometry, cloudmaterial);
+                earthMesh.add(cloudMesh);
+                */
+
+                //Het toevoegen van clouds werkt niet komen lelijke pixels als layer over de aarde heen.
+
+                //to add a texture to one or all objects
+                //var geometry  = new THREE.SphereGeometry(75, 75, 0);
+                //var material  = new THREE.MeshPhongMaterial();
+                //var object    = new THREE.Mesh(geometry, material);
+
+                //material.map = THREE.ImageUtils.loadTexture('https://c1.staticflickr.com/3/2189/2034781534_6026a9014e_z.jpg?zz=1'); MOET WEBURL ZIJN
+                //Images has to be web url or else chrome wont run the image locally and you end up with a totally black texture.
+                //Earth images URL
+                // Earth Texture: http://learningthreejs.com/data/2013-09-16-how-to-make-the-earth-in-webgl/demo/bower_components/threex.planets/images/earthmap1k.jpg
+                // Earth Bump: http://learningthreejs.com/data/2013-09-16-how-to-make-the-earth-in-webgl/demo/bower_components/threex.planets/images/earthbump1k.jpg
+                // Specular Texture: http://learningthreejs.com/data/2013-09-16-how-to-make-the-earth-in-webgl/demo/bower_components/threex.planets/images/earthspec1k.jpg
+                // Cloud texture: http://learningthreejs.com/data/2013-09-16-how-to-make-the-earth-in-webgl/demo/bower_components/threex.planets/images/earthcloudmap.jpg
+                // Cloud transparacy: http://learningthreejs.com/data/2013-09-16-how-to-make-the-earth-in-webgl/demo/bower_components/threex.planets/images/earthcloudmaptrans.jpg
+
+                // leap object controls
+                var objectControls                  = new THREE.LeapObjectControls(camera, earthMesh);
+
+                //Rotation
+                objectControls.rotateEnabled        = true;
+                objectControls.rotateSpeed          = 3;
+                objectControls.rotateHands          = 1;
+                objectControls.rotateFingers        = [2, 3];
+
+                //Rotation stop
+                objectControls.rotateEnabled        = false;
+                objectControls.rotateSpeed          = 0;
+                objectControls.rotateHands          = 1;
+                objectControls.rotateFingers        = [0];
+                objectControls.scaleEnabled       = false;
+                objectControls.panEnabled         = false;
+
+                //Scaling
+                objectControls.scaleEnabled         = true;
+                objectControls.scaleSpeed           = 3;
+                objectControls.scaleHands           = 1;
+                objectControls.scaleFingers         = [4, 5];
+
+                scene.add(earthMesh);
+                onRenderFcts.push(function(delta , now)
+                {
+                    delta = Math.PI;
+                    earthMesh.rotateY( 1 / 1536 * delta );
+                });
+
+                objects.push(earthMesh);
+                objectsControls.push(objectControls);
+            }
+            // light
+            light = new THREE.PointLight(0xffffff);
+            light.position = camera.position;
+            scene.add(light);
+
+            // listen to resize event
+            window.addEventListener('resize', onWindowResize, false);
+
+            // render (if no leap motion controller is detected, then this call is needed in order to see the plot)
+            render();
+        }
+
+        function changeControlsIndex()
+        {
+            if (lastControlsIndex == controlsIndex)
+            {
+                if (index != controlsIndex && controlsIndex > -2)
+                {
+                    // new object or camera to control
+                    if (controlsIndex > -2)
+                    {
+                        if (index > -1) objects[index].material.color.setHex( 0xffffff );
+                        index = controlsIndex;
+                        if (index > -1) objects[index].material.color.setHex( 0xffffff );
+                    }
+                }
+            }
+            lastControlsIndex = controlsIndex;
+        }
+
+        function transform(tipPosition, w, h)
+        {
+            var width = 150;
+            var height = 150;
+            var minHeight = 100;
+
+            var ftx = tipPosition[0];
+            var fty = tipPosition[1];
+            ftx = (ftx > width ? width - 1 : (ftx < -width ? -width + 1 : ftx));
+            fty = (fty > 2 * height ? 2 * height - 1 : ( fty < minHeight ? minHeight + 1 : fty ));
+            var x = THREE.Math.mapLinear(ftx, -width, width, 0, w);
+            var y = THREE.Math.mapLinear(fty, 2 * height, minHeight, 0, h);
+            return [x, y];
+        }
+
+        /*
+        function showCursor(frame)
+        {
+            var hl = frame.hands.length;
+            var fl = frame.pointables.length;
+
+            if (hl == 1 && fl == 1)
+            {
+                var f = frame.pointables[0];
+                var cont = $(renderer.domElement);
+                var offset = cont.offset();
+                var coords = transform(f.tipPosition, cont.width(), cont.height());
+                $("#cursor").css('left', offset.left + coords[0] - (($("#cursor").width() - 1) / 2 + 1));
+                $("#cursor").css('top', offset.top + coords[1] - (($("#cursor").height() - 1) / 2 + 1));
+            }
+            else
+            {
+                $("#cursor").css('left', -1000);
+                $("#cursor").css('top', -1000);
+            }
+        }
+        */
+
+        /*
+        function focusObject(frame)
+        {
+            var hl = frame.hands.length;
+            var fl = frame.pointables.length;
+
+            if (hl == 1 && fl == 1)
+            {
+                var f = frame.pointables[0];
+                var cont = $(renderer.domElement);
+                var coords = transform(f.tipPosition, cont.width(), cont.height());
+                var vpx = (coords[0]/cont.width()) * 2 - 1;
+                var vpy = -(coords[1]/cont.height()) * 2 + 1;
+                var vector = new THREE.Vector3(vpx, vpy, 0.5);
+                projector.unprojectVector(vector, camera);
+                var raycaster = new THREE.Raycaster(camera.position, vector.sub(camera.position).normalize());
+                var intersects = raycaster.intersectObjects(objects);
+                if (intersects.length > 0)
+                {
+                    var i = 0;
+                    while(!intersects[i].object.visible) i++;
+                    var intersected = intersects[i];
+                    return objects.indexOf(intersected.object);
+                }
+                else
+                {
+                    return -1;
+                }
+            }
+            return -2;
+        }
+        */
+
+        function render()
+        {
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize()
+        {
+            camera.aspect = $(window).width() / $(window).height();
+            camera.updateProjectionMatrix();
+            renderer.setSize($(window).width(), $(window).height());
+            render();
+        }
+
+        var lastTimeMsec = null;
+        requestAnimationFrame(function animate(nowMsec){
+            //keep looping
+            requestAnimationFrame( animate );
+            //measure time
+            lastTimeMsec        = lastTimeMsec || nowMsec-1000/60;
+            var deltaMsec       = Math.min(200, lastTimeMsec - nowMsec );
+            lastTimeMsec        = nowMsec;
+            //call each update function
+            onRenderFcts.forEach(function(onRenderFct){
+                onRenderFct(deltaMsec / 1000, nowMsec / 1000);
+            });
+        });
+
+        $(function()
+        {
+            init();
+
+
+
+
+            // leap loop
+            Leap.loop(function(frame)
+            {
+                // show cursor
+                //showCursor(frame);
+
+                //switching planets W.I.P
+                /*
+                if(frame.gestures.length > 0)
+                {
+                    for (var i = 0; i < frame.gestures.length; i++)
+                    {
+                        var gesture = frame.gestures[i];
+
+                        if (gesture.type == "swipe")
+                        {
+                            //Classify swipe as either horizontal or vertical
+                            var isHorizontal = Math.abs(gesture.direction[0]) > Math.abs(gesture.direction[1]);
+                            //Classify as right-left or up-down
+                            if (isHorizontal)
+                            {
+                                if (gesture.direction[0] > 0)
+                                {
+
+                                }
+                                else
+                                {
+
+                                }
+                            }
+                        }
+                    }
+                }
+                /*
+
+                 */
+
+                // set correct camera control
+                //controlsIndex = focusObject(frame);
+
+
+                if (index == -1)
+                {
+                    cameraControls.update(frame);
+                }
+                else
+                {
+                    objectsControls[index].update(frame);
+                }
+                // custom modifications (here: show coordinate system always on target and light movement)
+                coords1.position = cameraControls.target;
+                coords2.position = cameraControls.target;
+                coords3.position = cameraControls.target;
+                light.position   = camera.position;
+
+                render();
+            });
+
+            // detect controls change
+            setInterval(changeControlsIndex, 250);
+        });
+    </script>
+</head>
+
+<body>
+<div id="info">
+    <h4>Camera &amp; Object Controls</h4>
+
+    <b>ROTATING</b> -> 1 Hand &amp; 2-3 Fingers. <b>ZOOMING/SCALING</b> -> 1 Hand &amp; 4-5 Fingers.  <b>PANNING</b> -> 2 Hands &amp; 6-10 Fingers
+</div>
+<div id="container"></div>
+<audio autoplay="autoplay" loop="loop">
+    <source src="sounds/Space_Wasteland.wav"/>
+</audio>
+</body>
+</html>
